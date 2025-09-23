@@ -19,6 +19,15 @@ async function connectToDatabase() {
 }
 
 export default async function handler(req, res) {
+  // === AÑADIMOS CORS ===
+  res.setHeader('Access-Control-Allow-Origin', '*'); // permite cualquier dominio
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    // Responder a preflight request
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Método no permitido' });
   }
@@ -29,8 +38,8 @@ export default async function handler(req, res) {
     const collection = db.collection(COLLECTION);
 
     // Paginación
-    const page = parseInt(req.query.page) || 1; // página actual
-    const limit = parseInt(req.query.limit) || 10; // documentos por página
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const totalEvents = await collection.countDocuments();
