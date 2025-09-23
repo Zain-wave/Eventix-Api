@@ -28,7 +28,9 @@ export default async function handler(req, res) {
     const db = client.db(DB_NAME);
     const collection = db.collection(COLLECTION);
 
-    const eventos = await collection.find({}).sort({ fetchedAt: -1 }).toArray();
+    //const eventos = await collection.find({}).sort({ fetchedAt: -1 }).toArray();
+    const eventos = await col.find({}).limit(10).toArray();
+
 
     return res.status(200).json(eventos);
   } catch (err) {
