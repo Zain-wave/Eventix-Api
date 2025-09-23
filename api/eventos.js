@@ -6,24 +6,16 @@ const COLLECTION = process.env.MONGO_COLLECTION || 'events';
 
 let cachedClient = null; // para reusar la conexión
 
-console.log('DB:', DB_NAME, 'COLLECTION:', COLLECTION);
-console.log('MONGO_URL:', MONGO_URL);
-
 async function connectToDatabase() {
   if (cachedClient) return cachedClient;
 
-  try {
-    const client = new MongoClient(MONGO_URL, {
-      serverApi: { version: '1', strict: true, deprecationErrors: true }
-    });
-    await client.connect();
-    cachedClient = client;
-    console.log('Conectado a MongoDB correctamente');
-    return client;
-  } catch (err) {
-    console.error('Error al conectar a MongoDB:', err);
-    throw err; // relanza para que el handler también lo capture
-  }
+  const client = new MongoClient(MONGO_URL, {
+    serverApi: { version: '1', strict: true, deprecationErrors: true }
+  });
+
+  await client.connect();
+  cachedClient = client;
+  return client;
 }
 
 export default async function handler(req, res) {
@@ -34,18 +26,33 @@ export default async function handler(req, res) {
   try {
     const client = await connectToDatabase();
     const db = client.db(DB_NAME);
-
-    // Listar todas las colecciones disponibles en la DB
-    const collections = await db.listCollections().toArray();
-    console.log('Colecciones disponibles:', collections.map(c => c.name));
-
     const collection = db.collection(COLLECTION);
 
-    // Trae hasta 10 eventos
-    const eventos = await collection.find({}).limit(10).toArray();
-    console.log('Cantidad de eventos encontrados:', eventos.length);
+    // Paginación
+    const page = parseInt(req.query.page) || 1; // página actual
+    const limit = parseInt(req.query.limit) || 10; // documentos por página
+    const skip = (page - 1) * limit;
 
-    return res.status(200).json({ colecciones: collections.map(c => c.name), eventos });
+    const totalEvents = await collection.countDocuments();
+    const eventos = await collection
+      .find({})
+      .sort({ fetchedAt: -1 }) // opcional: ordena por fecha más reciente
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    // Listar colecciones disponibles
+    const collections = await db.listCollections().toArray();
+
+    return res.status(200).json({
+      db: DB_NAME,
+      collection: COLLECTION,
+      totalEvents,
+      currentPage: page,
+      perPage: limit,
+      collectionsAvailable: collections.map(c => c.name),
+      eventos
+    });
   } catch (err) {
     console.error('Error en /api/eventos:', err);
     return res.status(500).json({
